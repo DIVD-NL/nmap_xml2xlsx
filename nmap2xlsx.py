@@ -31,22 +31,21 @@ scripts = []
 rows = []
 for f in args.input:
     # read in the xml
-    xtree = et.parse(args.input[0]) #<- input xml here
+    xtree = et.parse(f) #<- input xml here
     xroot = xtree.getroot()
 
     hosts = xroot.findall('host')
     hostcount=len(hosts);
     i = 0;
     for host in hosts:
-        #pprint(host.find("ports").find("port").find("script").attrib.get("output"))
         s_starttime = host.attrib.get("starttime")
         s_time = datetime.datetime.fromtimestamp(int(s_starttime)).strftime('%Y-%m-%d %H:%M:%S %Z')
         s_host = host.find("address").attrib.get("addr")
-        '''
-        example script tags look like:
-        <script id="http-vuln-cve2021-26855_patched" output="Patched against CVE-2021-26855"/>
-        <script id="http-vuln-exchange_v2" output="(15.0.1497) Exchange 2013 potentially vulnerable, check latest security update is applied (15.0.1497 Exchange 2013 CU23 installed)"/></port>
-        '''
+
+        # example script tags look like:
+        # <script id="http-vuln-cve2021-26855_patched" output="Patched against CVE-2021-26855"/>
+        # <script id="http-vuln-exchange_v2" output="(15.0.1497) Exchange 2013 potentially vulnerable, check # latest security update is applied (15.0.1497 Exchange 2013 CU23 installed)"/></port>
+
         row = {"host": s_host, "timestamp": s_starttime, "time": s_time}
         # Iterate over the ports
         for port in host.find("ports").findall("port"):
@@ -66,6 +65,7 @@ for f in args.input:
         bar.update(currentfile+(i/hostcount))
     currentfile=currentfile+1
     bar.update(currentfile)
+    
 
 # prep the out dataframe and write to xlsx
 out_df = pd.DataFrame(rows, columns = cols + ports + scripts)

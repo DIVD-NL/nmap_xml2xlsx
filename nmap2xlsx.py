@@ -23,12 +23,22 @@ widgets = [ progressbar.Percentage(), progressbar.Bar()]
 
 filecount = len(args.input)
 currentfile = 0;
-bar = progressbar.ProgressBar(max_value = filecount+1, widgets = widgets).start()
 # set headers / existing fields of the dataset
 cols = ["host", "timestamp", "time" ]
 ports = []
 scripts = []
 rows = []
+totalhosts=0
+for f in args.input:
+    # read in the xml
+    xtree = et.parse(f) #<- input xml here
+    xroot = xtree.getroot()
+
+    hosts = xroot.findall('host')
+    totalhosts=totalhosts+len(hosts);
+bar = progressbar.ProgressBar(max_value = totalhosts, widgets = widgets).start()
+
+i = 0;
 for f in args.input:
     # read in the xml
     xtree = et.parse(f) #<- input xml here
@@ -36,7 +46,6 @@ for f in args.input:
 
     hosts = xroot.findall('host')
     hostcount=len(hosts);
-    i = 0;
     for host in hosts:
         s_starttime = host.attrib.get("starttime")
         s_time = datetime.datetime.fromtimestamp(int(s_starttime)).strftime('%Y-%m-%d %H:%M:%S %Z')
@@ -62,14 +71,13 @@ for f in args.input:
 
         rows.append(row)
         i = i + 1
-        bar.update(currentfile+(i/hostcount))
-    currentfile=currentfile+1
-    bar.update(currentfile)
+        bar.update(i)
+bar.update(totalhosts)
     
-
+print("\nWriting output, this may take a while for large files...")
 # prep the out dataframe and write to xlsx
 out_df = pd.DataFrame(rows, columns = cols + ports + scripts)
-#out_df.to_csv(r'notNL_rescan_4_parsed.csv', index = False)
-out_df.to_excel(outfile, index = False ) # <---- Give output file name here
+out_df.to_excel(outfile, index = False ) 
 bar.finish()
 pprint(out_df)
+print("Done")

@@ -10,6 +10,7 @@ import progressbar
 parser = argparse.ArgumentParser(description='Parse an nmap .xml file to CSV', allow_abbrev=False)
 parser.add_argument('input', type=str, metavar="INPUT.xml", nargs="+", help="Location of the file(s) to anonymize")
 parser.add_argument('--output', "-o", type=str, metavar="OUTPUT.xlsx", help="Location of the output file")
+parser.add_argument('--consolidate-ports', "-c", action="store_true", required=False, help="Consolidate open ports into a single field")
 args = parser.parse_args()
 
 outfile = args.output
@@ -57,18 +58,26 @@ for f in args.input:
 
         row = {"host": s_host, "timestamp": s_starttime, "time": s_time}
         # Iterate over the ports
+        open_ports = []
         for port in host.find("ports").findall("port"):
             port_string = "{}/{}".format(port.attrib.get("portid"),port.attrib.get("protocol"))
             if not port_string in ports:
-                ports.append(port_string)
-            row[port_string] = port.find('state').attrib.get("state")
+                if port.find('state').attrib.get("state") == "open":
+                    open_ports.append(port_string)
+            if args.consolidate_ports :
+                if port_string not in open_ports:
+                    open_ports.append(port_string)
+            else :
+                row[port_string] = port.find('state').attrib.get("state")
             # check if script tags exist for this host/port, if they do loop over them and add their scriptname : output to the row
             for script in port.findall("script"):
                 script_id = script.attrib.get("id")
                 if script_id not in scripts:
                     scripts.append(script_id)
                 row[script_id] = script.attrib.get("output")
-
+        
+        if args.consolidate_ports:
+            row["open_ports"] = ", ".join(open_ports)
         rows.append(row)
         i = i + 1
         bar.update(i)
@@ -76,7 +85,10 @@ bar.update(totalhosts)
     
 print("\nWriting output, this may take a while for large files...")
 # prep the out dataframe and write to xlsx
-out_df = pd.DataFrame(rows, columns = cols + ports + scripts)
+if args.consolidate_ports:
+    out_df = pd.DataFrame(rows, columns = cols + ["open_ports"] + scripts)
+else:
+    out_df = pd.DataFrame(rows, columns = cols + ports + scripts)
 out_df.to_excel(outfile, index = False ) 
 bar.finish()
 pprint(out_df)
